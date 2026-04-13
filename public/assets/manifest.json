@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-04-13T21:43:56.482Z",
+  "files": [
+    {
+      "path": "/assets/kavyatruck.opt.glb",
+      "sizeBytes": 50605488,
+      "sizeKB": 49419.42,
+      "md5hash": "ba70867a88ef6f771fb343b17b74666c",
+      "generatedAt": "2026-04-13T21:43:56.482Z"
+    },
+    {
+      "path": "/assets/kavyatruck-lod1.glb",
+      "sizeBytes": 5163740,
+      "sizeKB": 5042.71,
+      "md5hash": "e760a569c68aee2ded3070bbe1bb55b0",
+      "generatedAt": "2026-04-13T21:43:56.482Z"
+    },
+    {
+      "path": "/assets/kavyatruck-lod2.glb",
+      "sizeBytes": 5156808,
+      "sizeKB": 5035.95,
+      "md5hash": "1d5ae5f884effc36294bab34d4af4fb7",
+      "generatedAt": "2026-04-13T21:43:56.482Z"
+    },
+    {
+      "path": "/assets/kavya-env.meshopt.glb",
+      "sizeBytes": 1140920,
+      "sizeKB": 1114.18,
+      "md5hash": "0bce169e2223b786c5583645277a3cde",
+      "generatedAt": "2026-04-13T21:43:56.482Z"
+    }
+  ]
+}
