@@ -79,7 +79,9 @@ export function setupWorldMotion(refs) {
     }
 
     /* ── 1. Signed scroll delta → direction + velocity ── */
-    const scrollDelta = progress - prevProgress       // SIGNED — positive = scroll down
+    const rawScrollDelta = progress - prevProgress       // SIGNED — positive = scroll down
+    // FIX6: cap delta per frame to prevent large texture vOffset jumps on fast scroll
+    const scrollDelta = Math.sign(rawScrollDelta) * Math.min(Math.abs(rawScrollDelta), 0.025)
     prevProgress = progress
 
     const absDelta = Math.abs(scrollDelta)

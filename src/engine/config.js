@@ -111,21 +111,21 @@ export const CAMERA_KEYFRAMES = [
 export const LIGHTING = {
   SUN: {
     DIRECTION: [-0.3, -0.85, 0.4],   // raised sun angle — less harsh shadows
-    INTENSITY: 3.2,                    // reduced to avoid scene overexposure
+    INTENSITY: 2.0,                    // FIX3: reduced to prevent truck front blow-out
     COLOR: [0.88, 0.93, 1.0],         // cool daylight highlight
     POSITION: [15, 50, -20],           // higher sun position
   },
   FILL: {
     DIRECTION: [0, 1, 0],
-    INTENSITY: 0.4,                    // reduced ambient wash
+    INTENSITY: 0.6,                    // FIX1: raised ambient fill to soften shadow contrast
     SKY_COLOR: [0.48, 0.62, 0.86],    // Sky bounce in brand blue range
     GROUND_COLOR: [0.38, 0.30, 0.22], // Warm earth bounce for ground
   },
   SHADOW: {
     MAP_SIZE: IS_MOBILE ? 1024 : 2048,
-    DARKNESS: 0.25,                    // ↓ reduced — softer, more natural shadows
+    DARKNESS: 0.55,                    // FIX1: raised transparency = lighter, softer shadows
     BLUR_KERNEL: 32,
-    BIAS: 0.005,
+    BIAS: -0.001,                      // FIX1: negative bias reduces shadow acne on ground
     FRUSTUM_SIZE: 60,
   },
 }
@@ -134,7 +134,7 @@ export const LIGHTING = {
    FOG
    ═══════════════════════════════════════ */
 export const FOG = {
-  COLOR: [0.72, 0.65, 0.55],    // Warm earthy haze
+  COLOR: [0.831, 0.659, 0.510], // FIX2: warm dusk horizon haze (#D4A882)
   DENSITY: 0.00022,             // Reduced further to prevent washout
   MODE: 2,                      // BABYLON.Scene.FOGMODE_EXP2
 }
@@ -144,13 +144,13 @@ export const FOG = {
    ═══════════════════════════════════════ */
 export const POST = {
   TONE_MAPPING_ENABLED: true,
-  EXPOSURE: 1.28,
-  EXPOSURE_MIN: 1.05,
-  EXPOSURE_MAX: 1.45,
+  EXPOSURE: 0.85,                  // FIX2+5: reduced exposure → richer colors, less blown highlights
+  EXPOSURE_MIN: 0.75,
+  EXPOSURE_MAX: 0.95,
   CONTRAST: 1.18,                  // Controlled contrast for clean highlights
   VIGNETTE_WEIGHT: 3.6,            // Slightly softer edge darkening
   VIGNETTE_STRETCH: 0.6,
-  GLOW_INTENSITY: 0.12,            // Reduced bloom to avoid haze
+  GLOW_INTENSITY: 0.05,            // FIX5: drastically reduced to prevent bloom halo on truck
   GLOW_BLUR_SIZE: IS_MOBILE ? 16 : 48,
   // Film grain
   GRAIN_INTENSITY: 0.035,

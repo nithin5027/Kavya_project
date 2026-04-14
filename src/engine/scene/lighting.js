@@ -55,6 +55,7 @@ export function setupLighting(scene, deviceTier = 'balanced') {
   shadowGen.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
   shadowGen.darkness = CFG.SHADOW.DARKNESS
   shadowGen.bias = CFG.SHADOW.BIAS
+  shadowGen.normalBias = 0.02                      // FIX1: reduces shadow acne / ground blotches
   shadowGen.setDarkness(CFG.SHADOW.DARKNESS)
   shadowGen.transparencyShadow = false
   applyShadowTier(deviceTier, shadowGen)

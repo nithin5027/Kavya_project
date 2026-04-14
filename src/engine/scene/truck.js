@@ -357,13 +357,48 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
         forceOpaqueTruckMaterial(mesh.material)
         fixBannerTextureOrientation(mesh.material, correctedTextures)
         if (mesh.material instanceof PBRMaterial) {
-          mesh.material.environmentIntensity = 0.8
-          mesh.material.directIntensity = 1.8
-          mesh.material.specularIntensity = 0.6
-          mesh.material.roughness = Math.min(mesh.material.roughness, 0.6)
-          mesh.material.metallic = Math.max(mesh.material.metallic, 0.3)
+          // FIX1: Name-based tyre / rim / body material routing
+          const mName = (mesh.name || '').toLowerCase()
+          const matName = (mesh.material.name || '').toLowerCase()
+          const combined = mName + ' ' + matName
+
+          const isTyre = /wheel|tyre|tire|rubber|tyre|rub/.test(combined)
+          const isRim  = /rim|hub|spoke|cap|axle|brake/.test(combined)
+
+          if (isTyre) {
+            // Dark matte rubber — no highlights, no env reflections
+            mesh.material.roughness = 0.95
+            mesh.material.metallic  = 0.0
+            mesh.material.environmentIntensity = 0.05
+            mesh.material.directIntensity = 0.8
+            mesh.material.specularIntensity = 0.0
+            if (mesh.material.albedoColor &&
+                mesh.material.albedoColor.r > 0.25 &&
+                mesh.material.albedoColor.r === mesh.material.albedoColor.g) {
+              // only recolor if it was a generic grey/default (not painted truck color)
+              mesh.material.albedoColor = new Color3(0.08, 0.08, 0.08)
+            }
+          } else if (isRim) {
+            // Chrome / painted metal rim
+            mesh.material.roughness = 0.25
+            mesh.material.metallic  = 0.75
+            mesh.material.environmentIntensity = 0.6
+            mesh.material.directIntensity = 1.5
+            mesh.material.specularIntensity = 0.8
+          } else {
+            // Truck body / cabin / trailer panels — moderate, no blow-out
+            mesh.material.environmentIntensity = 0.5
+            mesh.material.directIntensity = 1.3
+            mesh.material.specularIntensity = 0.4
+            // Prevent plastic-flat look but keep PBR values mostly as authored in GLB
+            if (mesh.material.roughness < 0.30) mesh.material.roughness = 0.30  // no mirror-like panels
+            if (mesh.material.metallic  > 0.60) mesh.material.metallic  = 0.60  // cap overly chrome panels
+          }
+
           if (!mesh.material.emissiveColor || mesh.material.emissiveColor.equals(Color3.Black())) {
-            mesh.material.emissiveColor = new Color3(0.12, 0.12, 0.14)
+            // Slight fill-in for shadowed areas: smaller value for tyres
+            const fill = isTyre ? 0.04 : 0.10
+            mesh.material.emissiveColor = new Color3(fill, fill, fill + 0.01)
           }
         }
       }

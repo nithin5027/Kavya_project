@@ -72,9 +72,9 @@ export function setupRoad(scene, shadowGen) {
       height: ROAD.LENGTH,
       subdivisions: 1,
     }, scene)
-    plane.position.set(xOffset, ROAD.Y + 0.006, 0)
+    plane.position.set(xOffset, ROAD.Y + 0.02, 0)  // FIX6: raised 20mm above road to prevent Z-fighting
     plane.isPickable = false
-    plane.renderingGroupId = 1
+    plane.renderingGroupId = 2  // FIX6: render after road (group1) to guarantee no Z-fight streaks
 
     // Procedural dash pattern via DynamicTexture
     const texH = 128, texW = 8
@@ -99,7 +99,12 @@ export function setupRoad(scene, shadowGen) {
     mat.useAlphaFromDiffuseTexture = true
     mat.transparencyMode = 1 // ALPHATEST — crisp edges, no z-sorting issues
     mat.backFaceCulling = false
+    // FIX2: do NOT disable depth write — ALPHATEST mode already handles depth correctly.
+    // Removed disableDepthWrite which was causing dashes to overdraw truck wheels.
     plane.material = mat
+    // FIX2: zOffset pulls the mesh plane toward camera in z-buffer space,
+    // preventing any residual z-fighting with the road surface below.
+    plane.zOffset = -4
 
     dashTextures.push(tex)
   }

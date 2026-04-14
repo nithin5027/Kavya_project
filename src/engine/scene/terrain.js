@@ -56,7 +56,7 @@ export function setupTerrain(scene) {
     updatable: true,
   }, scene)
   ground.position.y = -0.15
-  ground.receiveShadows = true
+  ground.receiveShadows = false  // FIX1: disable terrain shadow reception — prevents harsh ground blotches
   ground.renderingGroupId = 0
 
   /* ── Displace vertices for gentle rolling hills ── */

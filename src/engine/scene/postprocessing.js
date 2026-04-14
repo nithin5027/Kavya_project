@@ -136,7 +136,7 @@ export function setupPostProcessing(scene, camera, deviceTier = 'balanced', engi
     mainTextureFixedSize: IS_MOBILE ? 256 : 512,
     blurKernelSize: POST.GLOW_BLUR_SIZE,
   })
-  glow.intensity = 0.15
+  glow.intensity = 0.08  // FIX5: reduced to prevent bloom halo from truck sides
 
   applyPostTier(currentTier, pipeline, glow, engineAntialias)
 

@@ -1882,7 +1882,13 @@ body, a, button, [role="button"], .ov-btn, .ov-magnetic-wrap {
 
 /* About content panel */
 .ov-about-content.ov-glass-panel {
-  background: rgba(6, 10, 22, 0.70) !important;
+  background: rgba(8, 15, 35, 0.82) !important;  /* FIX4: deep navy dark glass */
+  backdrop-filter: blur(20px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
 /* Fleet content panel */
@@ -2320,4 +2326,99 @@ body {
     rgba(31,111,221,0.04) 70%,
     rgba(31,111,221,0) 100%
   ) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FIX 3 — HERO TEXT CONTRAST & PREMIUM STYLING
+   ══════════════════════════════════════════════════════════════ */
+
+/* 3A: No box behind hero text — text only, fully transparent */
+.ov-hero-inner {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  margin-top: -5vh !important;
+  max-width: 700px !important;
+}
+
+/* 3B: Main headline — heavier weight, stronger depth shadow */
+.ov-title {
+  font-weight: 700 !important;
+  letter-spacing: -0.03em !important;
+  line-height: 1.05 !important;
+  text-shadow:
+    0 2px 4px rgba(0,0,0,0.7),
+    0 4px 20px rgba(0,0,0,0.55),
+    0 12px 48px rgba(0,0,0,0.40) !important;
+}
+
+/* "Trust." — deeper royal blue, italic, subtle glow */
+.ov-accent {
+  color: #1E7FFF !important;
+  font-style: italic !important;
+  font-weight: 700 !important;
+  text-shadow:
+    0 0 40px rgba(30,127,255,0.30),
+    0 2px 4px rgba(0,0,0,0.5) !important;
+}
+
+/* 3C: Description paragraph — soft off-white, readable */
+.ov-hero .ov-desc {
+  color: rgba(215, 225, 238, 0.90) !important;
+  font-size: 1.0rem !important;
+  line-height: 1.72 !important;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.55) !important;
+}
+
+/* 3D: Primary CTA — solid blue background, white text */
+.ov-hero .ov-btn--primary {
+  background: #1E7FFF !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.09em !important;
+  box-shadow: 0 4px 22px rgba(30,127,255,0.45) !important;
+}
+.ov-hero .ov-btn--primary:hover {
+  background: #0066EF !important;
+  box-shadow: 0 6px 30px rgba(30,127,255,0.60) !important;
+  transform: translateY(-2px) scale(1.02) !important;
+}
+
+/* Secondary CTA — frosted glass */
+.ov-hero .ov-btn--outline {
+  background: rgba(255,255,255,0.07) !important;
+  color: rgba(240,240,248,0.95) !important;
+  border: 1.5px solid rgba(255,255,255,0.28) !important;
+  backdrop-filter: blur(8px) !important;
+  font-weight: 500 !important;
+}
+.ov-hero .ov-btn--outline:hover {
+  background: rgba(255,255,255,0.14) !important;
+  border-color: rgba(255,255,255,0.52) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* 3E: Stats — bolder numbers, muted labels, top separator */
+.ov-stats {
+  border-top: 1px solid rgba(255,255,255,0.14) !important;
+  padding-top: 1.6rem !important;
+  margin-top: 1.8rem !important;
+}
+
+.ov-stat-num {
+  font-size: clamp(2rem, 4.5vw, 3.2rem) !important;
+  font-weight: 800 !important;
+  color: #1E7FFF !important;
+  letter-spacing: -0.03em !important;
+  text-shadow:
+    0 0 28px rgba(30,127,255,0.22),
+    0 2px 8px rgba(0,0,0,0.35) !important;
+}
+
+.ov-stat-label {
+  color: rgba(185, 200, 220, 0.78) !important;
+  font-size: 0.63rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
 }
