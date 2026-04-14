@@ -49,6 +49,7 @@ export default function App() {
   const progressRef = useRef(0)
   const rawProgressRef = useRef(0)
   const transitioningToAboutRef = useRef(false)
+  const [exitingToPages, setExitingToPages] = useState(false)
 
   const isMobile = useMemo(() => {
     if (typeof window === 'undefined') return false
@@ -186,7 +187,28 @@ export default function App() {
     const navigateToPages = () => {
       if (transitioningToAboutRef.current || loading || !introComplete) return
       transitioningToAboutRef.current = true
-      navigate('/pages', { state: { fromHomeScroll: true } })
+
+      // 1. Immediately freeze scroll position so the page doesn't visually jump
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${window.scrollY}px`
+      document.body.style.left = '0'
+      document.body.style.right = '0'
+
+      // 2. Trigger fade-out overlay
+      setExitingToPages(true)
+
+      // 3. After fade-out animation completes, navigate
+      setTimeout(() => {
+        const scrollY = document.body.style.top
+        document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.top = ''
+        document.body.style.left = ''
+        document.body.style.right = ''
+        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1)
+        navigate('/pages', { state: { fromHomeScroll: true } })
+      }, 500)
     }
 
     const hasReachedEnd = () => rawProgressRef.current >= END_THRESHOLD
@@ -406,9 +428,6 @@ export default function App() {
       {/* ── 3D Canvas — Babylon.js cinematic engine ── */}
       <BabylonCanvas progressRef={progressRef} onReady={handleReady} />
 
-      {/* ── Speed lines overlay (desktop only) ── */}
-      <div className="speed-lines" />
-
       {/* ── Fixed overlay — section-driven, minimal re-renders ── */}
       <OverlayUI section={section} progressRef={progressRef} introComplete={introComplete} />
 
@@ -417,6 +436,9 @@ export default function App() {
 
       {/* ── Film grain overlay ── */}
       <div className="film-grain-overlay" />
+
+      {/* ── Page exit fade overlay ── */}
+      <div className={`home-exit-fade ${exitingToPages ? 'home-exit-fade--active' : ''}`} />
 
       {showPerfHUD && <PerfHUD metrics={perfMetrics} tier={runtimeTier} />}
     </>

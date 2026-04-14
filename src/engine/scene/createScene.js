@@ -83,11 +83,6 @@ async function loadEnvironment(scene, envPath = '/assets/kavya-env.glb') {
     'billboard_post', 'signpost'
   ]
 
-  const REMOVE_POLE_KEYWORDS = [
-    'pole', 'post', 'pylon', 'utility',
-    'wire', 'cable', 'street_light', 'streetlight', 'lamp'
-  ]
-
   const ALWAYS_KEEP_KEYWORDS = [
     'mountain', 'Mountain', 'hill', 'terrain',
     'line', 'Line',
@@ -102,11 +97,6 @@ async function loadEnvironment(scene, envPath = '/assets/kavya-env.glb') {
     if (name === '__root__') continue
 
     const lower = name.toLowerCase()
-    if (REMOVE_POLE_KEYWORDS.some((k) => lower.includes(k))) {
-      mesh.dispose()
-      continue
-    }
-
     const shouldKeep = ALWAYS_KEEP_KEYWORDS.some((k) => name.includes(k))
     if (shouldKeep) {
       mesh.isVisible = true

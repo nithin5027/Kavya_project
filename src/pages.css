@@ -37,6 +37,16 @@ html { scroll-behavior: smooth; }
   cursor: none;
 }
 
+/* Smooth fade-in when arriving from home cinematic */
+.page-wrapper.page-fade-in {
+  animation: pageFadeInFromHome 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes pageFadeInFromHome {
+  0%   { opacity: 0; filter: blur(4px); }
+  100% { opacity: 1; filter: blur(0); }
+}
+
 .page-main {
   min-height: 60vh;
 }

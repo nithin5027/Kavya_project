@@ -218,6 +218,7 @@ export default function SinglePage() {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', company: '', service: '', message: '' })
   const location = useLocation()
   const navigate = useNavigate()
+  const fromHome = location.state?.fromHomeScroll === true
 
   const isMobile = typeof window !== 'undefined' && (
     /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
@@ -338,7 +339,7 @@ export default function SinglePage() {
   }
 
   return (
-    <div className="page-wrapper">
+    <div className={`page-wrapper ${fromHome ? 'page-fade-in' : ''}`}>
       {mounted && <ScrollProgress />}
       <Header />
       <main className="page-main">

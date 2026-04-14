@@ -314,18 +314,6 @@ export default function OverlayUI({ section, progressRef, introComplete }) {
         })
       }
 
-      // ── Speed lines activation (desktop only) ──
-      const speedLinesEl = document.querySelector('.speed-lines')
-      if (speedLinesEl) {
-        const isMob = window.innerWidth < 768
-        if (speedNorm > 0.4 && !isMob) {
-          speedLinesEl.classList.add('active')
-          speedLinesEl.style.opacity = Math.min(1, (speedNorm - 0.4) * 2.5)
-        } else {
-          speedLinesEl.classList.remove('active')
-        }
-      }
-
       requestAnimationFrame(loop)
     }
     requestAnimationFrame(loop)
