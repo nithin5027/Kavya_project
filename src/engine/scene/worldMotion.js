@@ -204,5 +204,10 @@ export function setupWorldMotion(refs) {
     return worldDistance
   }
 
-  return { updateWorld, getWorldSpeed, getSpeedNorm, getWorldDistance }
+  /** Get signed world speed — positive = forward, negative = reverse */
+  function getSignedWorldSpeed() {
+    return worldSpeed
+  }
+
+  return { updateWorld, getWorldSpeed, getSignedWorldSpeed, getSpeedNorm, getWorldDistance }
 }

@@ -18,7 +18,6 @@ import {
   Vector3,
   MeshBuilder,
   StandardMaterial,
-  Mesh,
   DynamicTexture,
 } from '@babylonjs/core'
 import { ATMOSPHERE, WORLD, FOG } from '../config'
@@ -46,67 +45,11 @@ export function setupAtmosphere(scene, camera, sun, truck) {
   ptex.update()
   ptex.hasAlpha = true
 
-  /* ═══════════════════════════════════════
-     1. FLOATING DUST MOTES
-     Ambient particles catching sunlight — environmental depth
-     ═══════════════════════════════════════ */
-  const dustMotes = new ParticleSystem('dustMotes', ATMOSPHERE.DUST_COUNT, scene)
-  dustMotes.particleTexture = ptex
-  dustMotes.createBoxEmitter(
-    new Vector3(-1, -1, -1),
-    new Vector3(1, 1, 1),
-    new Vector3(-ATMOSPHERE.DUST_SPREAD, 0, -ATMOSPHERE.DUST_SPREAD),
-    new Vector3(ATMOSPHERE.DUST_SPREAD, ATMOSPHERE.DUST_SPREAD * 0.6, ATMOSPHERE.DUST_SPREAD),
-  )
-  dustMotes.emitter = truck || Vector3.Zero()
-  dustMotes.color1 = new Color4(1.0, 0.95, 0.85, ATMOSPHERE.DUST_OPACITY)
-  dustMotes.color2 = new Color4(0.9, 0.88, 0.78, ATMOSPHERE.DUST_OPACITY * 0.6)
-  dustMotes.colorDead = new Color4(0.8, 0.8, 0.8, 0)
-  dustMotes.minSize = ATMOSPHERE.DUST_SIZE[0]
-  dustMotes.maxSize = ATMOSPHERE.DUST_SIZE[1]
-  dustMotes.minLifeTime = 3.0
-  dustMotes.maxLifeTime = 8.0
-  dustMotes.emitRate = ATMOSPHERE.DUST_COUNT / 4
-  dustMotes.minEmitPower = 0.05
-  dustMotes.maxEmitPower = ATMOSPHERE.DUST_SPEED
-  dustMotes.gravity = new Vector3(0, -0.02, 0)
-  dustMotes.blendMode = ParticleSystem.BLENDMODE_ADD
-  dustMotes.updateSpeed = 0.008
-  dustMotes.start()
-  disposables.push(dustMotes)
+  /* Dust motes removed — minimal visual impact, high particle cost */
 
-  /* ═══════════════════════════════════════
-     2. VOLUMETRIC FOG PLANES
-     Subtle depth haze planes at far distances
-     ═══════════════════════════════════════ */
+  /* Fog planes removed — billboard matrix recalculation is expensive;
+     scene exponential fog provides equivalent depth haze at zero cost. */
   const fogPlanes = []
-  for (let i = 0; i < ATMOSPHERE.FOG_LAYERS; i++) {
-    const distance = 60 + (i + 1) * ATMOSPHERE.FOG_LAYER_SPACING
-    const opacity = (ATMOSPHERE.FOG_NEAR_OPACITY +
-      (ATMOSPHERE.FOG_FAR_OPACITY - ATMOSPHERE.FOG_NEAR_OPACITY) * (i / Math.max(ATMOSPHERE.FOG_LAYERS - 1, 1))) * 0.4
-
-    const plane = MeshBuilder.CreatePlane(`fogPlane_${i}`, {
-      width: 120,
-      height: 25,
-    }, scene)
-    plane.position.z = distance
-    plane.position.y = 10
-    plane.billboardMode = Mesh.BILLBOARDMODE_Y
-    plane.isPickable = false
-
-    const mat = new StandardMaterial(`fogPlaneMat_${i}`, scene)
-    mat.diffuseColor = new Color3(FOG.COLOR[0], FOG.COLOR[1], FOG.COLOR[2])
-    mat.emissiveColor = new Color3(FOG.COLOR[0] * 0.85, FOG.COLOR[1] * 0.85, FOG.COLOR[2] * 0.85)
-    mat.alpha = opacity
-    mat.backFaceCulling = false
-    mat.disableLighting = true
-    mat.hasAlpha = true
-    plane.material = mat
-    plane.renderingGroupId = 0
-
-    fogPlanes.push({ mesh: plane, material: mat, baseDistance: distance, baseOpacity: opacity })
-    disposables.push(plane)
-  }
 
   /* ═══════════════════════════════════════
      3. SUN GLOW MESH (visual marker for god ray direction)
@@ -131,11 +74,11 @@ export function setupAtmosphere(scene, camera, sun, truck) {
   }
 
   /* ═══════════════════════════════════════
-     4. SPEED LINES — Motion streaks at high velocity
-     Elongated transparent cylinders that streak past camera
+     4. SPEED LINES — Motion streaks at high velocity (capped at 8)
      ═══════════════════════════════════════ */
+  const MAX_STREAK = Math.min(ATMOSPHERE.STREAK_COUNT, 8)
   const speedLines = []
-  for (let i = 0; i < ATMOSPHERE.STREAK_COUNT; i++) {
+  for (let i = 0; i < MAX_STREAK; i++) {
     const line = MeshBuilder.CreateCylinder(`speedLine_${i}`, {
       diameter: 0.015,
       height: ATMOSPHERE.STREAK_LENGTH,
@@ -180,7 +123,7 @@ export function setupAtmosphere(scene, camera, sun, truck) {
      5. GROUND DUST TRAIL
      Heavy dust cloud kicked up behind truck at high speed
      ═══════════════════════════════════════ */
-  const groundDust = new ParticleSystem('groundDust', 300, scene)
+  const groundDust = new ParticleSystem('groundDust', 80, scene)
   groundDust.particleTexture = ptex
   groundDust.createConeEmitter(2.5, Math.PI / 4)
   groundDust.emitter = truck || Vector3.Zero()
@@ -215,23 +158,7 @@ export function setupAtmosphere(scene, camera, sun, truck) {
     elapsed += dt
     const sn = Math.min(speedNorm, 1)
 
-    /* ── Dust motes respond to speed ── */
-    dustMotes.minEmitPower = 0.05 + sn * 0.3
-    dustMotes.maxEmitPower = ATMOSPHERE.DUST_SPEED + sn * 0.8
-    // Dust scatters more at speed
-    dustMotes.emitRate = (ATMOSPHERE.DUST_COUNT / 4) * (0.7 + sn * 0.5)
-
-    /* ── Fog planes sway & opacity ── */
-    fogPlanes.forEach((fp, i) => {
-      fp.mesh.position.x = Math.sin(elapsed * 0.3 + i * 1.5) * 5
-      // Fog thickens slightly at speed (road spray effect)
-      fp.material.alpha = fp.baseOpacity * (1 + sn * 0.15)
-    })
-
-    /* ── Update sun glow mesh position to track sun direction ── */
-    if (sunMesh && sun) {
-      sunMesh.position = sun.direction.negate().normalize().scale(250)
-    }
+    /* Dust motes + fog planes removed for performance */
 
     /* ── Speed lines appear at high speed ── */
     speedLines.forEach((sl) => {
@@ -254,11 +181,7 @@ export function setupAtmosphere(scene, camera, sun, truck) {
     const dustThreshold = WORLD.GROUND_DUST_THRESHOLD
     if (sn > dustThreshold) {
       const dustIntensity = (sn - dustThreshold) / (1 - dustThreshold)
-      groundDust.emitRate = WORLD.GROUND_DUST_RATE * dustIntensity
-      groundDust.minSize = WORLD.GROUND_DUST_SIZE[0] + dustIntensity * 0.3
-      groundDust.maxSize = WORLD.GROUND_DUST_SIZE[1] + dustIntensity * 0.5
-      groundDust.minEmitPower = 1.0 + dustIntensity * 2.0
-      groundDust.maxEmitPower = 3.0 + dustIntensity * 4.0
+      groundDust.emitRate = Math.min(WORLD.GROUND_DUST_RATE * dustIntensity, 40)
     } else {
       groundDust.emitRate = 0
     }

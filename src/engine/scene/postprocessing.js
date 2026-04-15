@@ -120,7 +120,7 @@ export function setupPostProcessing(scene, camera, deviceTier = 'balanced', engi
   /* ── Film Grain ── */
   pipeline.grainEnabled = true
   pipeline.grain.intensity = POST.GRAIN_INTENSITY
-  pipeline.grain.animated = true
+  pipeline.grain.animated = false  // static grain saves per-frame GPU work
 
   /* ── FXAA ── */
   pipeline.fxaaEnabled = ADVANCED_POST.FXAA_ENABLED
@@ -132,8 +132,9 @@ export function setupPostProcessing(scene, camera, deviceTier = 'balanced', engi
   }
 
   /* ── GlowLayer (separate from pipeline bloom — for emissive surfaces) ── */
+  const glowSize = IS_MOBILE ? 128 : (deviceTier === 'high' ? 512 : 256)
   const glow = new GlowLayer('glowLayer', scene, {
-    mainTextureFixedSize: IS_MOBILE ? 256 : 512,
+    mainTextureFixedSize: glowSize,
     blurKernelSize: POST.GLOW_BLUR_SIZE,
   })
   glow.intensity = 0.08  // FIX5: reduced to prevent bloom halo from truck sides
@@ -166,13 +167,14 @@ export function setupPostProcessing(scene, camera, deviceTier = 'balanced', engi
 
   let heatShimmer = null
   let heatTime = 0
-  if (!IS_MOBILE && currentTier !== 'low') {
+  let heatEnabled = false
+  if (!IS_MOBILE && currentTier === 'high') {
     heatShimmer = new PostProcess(
       'heatShimmer',
       'heatShimmer',
       ['time', 'intensity'],
       null,
-      1.0,
+      0.5,  // half resolution — distortion is low-freq, saves significant GPU
       camera,
       0, // NEAREST sampling
       scene.getEngine(),
@@ -181,6 +183,7 @@ export function setupPostProcessing(scene, camera, deviceTier = 'balanced', engi
       effect.setFloat('time', heatTime)
       effect.setFloat('intensity', window._heatIntensity || 0)
     }
+    heatShimmer.isEnabled = false  // starts disabled; enabled only when intensity > 0
   }
   // Expose for external control
   window._heatIntensity = 0
@@ -233,7 +236,17 @@ export function setupPostProcessing(scene, camera, deviceTier = 'balanced', engi
       pipeline.imageProcessing.vignetteWeight = POST.VIGNETTE_WEIGHT * (1 + turboIntensity * 0.6)
     }
 
-    /* ── Heat shimmer time advance ── */
+    /* ── Heat shimmer — enable/disable based on intensity to skip full-res shader pass ── */
+    if (heatShimmer) {
+      const hi = window._heatIntensity || 0
+      if (hi > 0.01 && !heatEnabled) {
+        heatShimmer.isEnabled = true
+        heatEnabled = true
+      } else if (hi <= 0.01 && heatEnabled) {
+        heatShimmer.isEnabled = false
+        heatEnabled = false
+      }
+    }
     heatTime += dt
   }
 

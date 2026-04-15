@@ -31,7 +31,7 @@ export function setupRoad(scene, shadowGen) {
   road.position.y = ROAD.Y
   road.position.z = 0            // ← centered on truck
   road.receiveShadows = true
-  road.renderingGroupId = 1      // render above terrain
+  road.renderingGroupId = 0
 
   const asphalt = new PBRMaterial('asphaltMat', scene)
   asphalt.albedoColor = new Color3(ROAD.ASPHALT_COLOR[0], ROAD.ASPHALT_COLOR[1], ROAD.ASPHALT_COLOR[2])
@@ -59,7 +59,7 @@ export function setupRoad(scene, shadowGen) {
     line.position.set(xOffset, ROAD.Y + 0.005, 0)
     line.material = mat
     line.isPickable = false
-    line.renderingGroupId = 1
+    line.renderingGroupId = 0
     solidLines.push(line)
   }
 
@@ -74,7 +74,7 @@ export function setupRoad(scene, shadowGen) {
     }, scene)
     plane.position.set(xOffset, ROAD.Y + 0.02, 0)  // FIX6: raised 20mm above road to prevent Z-fighting
     plane.isPickable = false
-    plane.renderingGroupId = 2  // FIX6: render after road (group1) to guarantee no Z-fight streaks
+    plane.renderingGroupId = 0
 
     // Procedural dash pattern via DynamicTexture
     const texH = 128, texW = 8
@@ -140,7 +140,7 @@ export function setupRoad(scene, shadowGen) {
       : ROAD.WIDTH / 2 + shoulderWidth / 2
     shoulder.position.set(xPos, ROAD.Y - 0.02, 0)
     shoulder.receiveShadows = true
-    shoulder.renderingGroupId = 1
+    shoulder.renderingGroupId = 0
 
     const grass = new PBRMaterial(`shoulderMat_${side}`, scene)
     grass.albedoColor = new Color3(ROAD.SHOULDER_COLOR[0], ROAD.SHOULDER_COLOR[1], ROAD.SHOULDER_COLOR[2])

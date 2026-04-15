@@ -33,7 +33,6 @@ export function setupCinematicDirector(refs) {
   } = refs
 
   const ipc = scene.imageProcessingConfiguration
-  const baseSunDirY = LIGHTING.SUN.DIRECTION[1]
   const baseBlurKernel = LIGHTING.SHADOW.BLUR_KERNEL
 
   // Smooth state
@@ -41,236 +40,148 @@ export function setupCinematicDirector(refs) {
   let smoothExposure = POST.EXPOSURE
   let nightBlend = 0
 
-  // Pre-compute color temp arrays as Color3 for lerping
+  // ── Pre-allocated reusable objects — zero GC allocations per frame ──
   const tempStart = Color3.FromArray(POST.TEMP_START)
-  const tempMid = Color3.FromArray(POST.TEMP_MID)
-  const tempEnd = Color3.FromArray(POST.TEMP_END)
-
-  // Original lighting values for night mode interpolation
-  const daySunIntensity = LIGHTING.SUN.INTENSITY
+  const tempMid   = Color3.FromArray(POST.TEMP_MID)
+  const tempEnd   = Color3.FromArray(POST.TEMP_END)
+  const _tint     = new Color3()
+  const _sunColor = new Color3()
+  const _moonColor = new Color3(0.3, 0.35, 0.55)
+  const _horizonColor = new Color3()
+  const _fogColor  = new Color3()
+  const _fillSpec  = new Color3()
+  const _sunDir    = new Vector3(LIGHTING.SUN.DIRECTION[0], LIGHTING.SUN.DIRECTION[1], LIGHTING.SUN.DIRECTION[2])
+  const _nightHorizon   = Color3.FromArray(NIGHT_MODE.SKY_HORIZON)
+  const _nightTop       = Color3.FromArray(NIGHT_MODE.SKY_TOP)
+  const _skyTopBase     = Color3.FromArray(SKY.TOP_COLOR)
+  const _skyTopOut      = new Color3()
+  const _dayAmbient     = new Color3(0.15, 0.18, 0.22)
+  const daySunIntensity  = LIGHTING.SUN.INTENSITY
   const dayFillIntensity = LIGHTING.FILL.INTENSITY
-  const dayFogColor = Color3.FromArray(FOG.COLOR)
-  const nightFogColor = Color3.FromArray(NIGHT_MODE.FOG_COLOR)
-  const nightAmbientColor = Color3.FromArray(NIGHT_MODE.AMBIENT_COLOR)
+  const dayFogColor      = Color3.FromArray(FOG.COLOR)
+  const nightFogColor    = Color3.FromArray(NIGHT_MODE.FOG_COLOR)
+  const nightAmbientColor= Color3.FromArray(NIGHT_MODE.AMBIENT_COLOR)
+  const baseSunColor     = Color3.FromArray(LIGHTING.SUN.COLOR)
 
-  /**
-   * updateCinematic — called every frame from render loop
-   */
+  // Shadow update throttle — only update blur kernel every 6 frames
+  let shadowFrame = 0
+
   function updateCinematic(progress, dt) {
     const rawSpeed = getSpeedNorm()
-    // Smooth the speed for gentle transitions
     smoothSpeed += (rawSpeed - smoothSpeed) * Math.min(dt * 4, 1)
-    const s = Math.min(smoothSpeed, 1) // clamped speedNorm
+    const s = Math.min(smoothSpeed, 1)
 
-    /* ═══════════════════════════════════════
-       V — Night Mode Transition
-       Environment transitions to night in final scroll segment
-       ═══════════════════════════════════════ */
+    /* V — Night Mode */
     const nightTarget = progress > NIGHT_MODE.TRANSITION_START
       ? Math.min((progress - NIGHT_MODE.TRANSITION_START) / (NIGHT_MODE.TRANSITION_END - NIGHT_MODE.TRANSITION_START), 1)
       : 0
     nightBlend += (nightTarget - nightBlend) * Math.min(dt * 2, 1)
 
-    /* ═══════════════════════════════════════
-       J — Road Specular Response
-       ═══════════════════════════════════════ */
+    /* J — Road Specular Response */
     if (asphaltMat) {
-      const targetRoughness = ROAD.ROUGHNESS - (ROAD.ROUGHNESS - ROAD.ROUGHNESS_SPEED_MIN) * s
-      asphaltMat.roughness += (targetRoughness - asphaltMat.roughness) * Math.min(dt * 3, 1)
-      // Night: road becomes slightly more reflective (wet look)
+      const targetR = ROAD.ROUGHNESS - (ROAD.ROUGHNESS - ROAD.ROUGHNESS_SPEED_MIN) * s
+      asphaltMat.roughness += (targetR - asphaltMat.roughness) * Math.min(dt * 3, 1)
       if (nightBlend > 0) {
-        asphaltMat.roughness = asphaltMat.roughness * (1 - nightBlend * 0.3)
+        asphaltMat.roughness *= (1 - nightBlend * 0.3)
         asphaltMat.metallic = nightBlend * 0.15
       }
     }
 
-    /* ═══════════════════════════════════════
-       L — Dynamic Rim Light + Reflections
-       ═══════════════════════════════════════ */
+    /* L — Dynamic Rim Light (reuse _fillSpec) */
     if (fill) {
-      const rimIntensity = CINEMATIC.RIM_LIGHT_BASE + (CINEMATIC.RIM_LIGHT_MAX - CINEMATIC.RIM_LIGHT_BASE) * s
-      fill.specular = new Color3(rimIntensity, rimIntensity * 0.9, rimIntensity * 0.8)
-      // Night mode: reduce fill, boost specular for moonlight feel
+      const ri = CINEMATIC.RIM_LIGHT_BASE + (CINEMATIC.RIM_LIGHT_MAX - CINEMATIC.RIM_LIGHT_BASE) * s
+      _fillSpec.set(ri, ri * 0.9, ri * 0.8)
+      fill.specular = _fillSpec
       fill.intensity = dayFillIntensity * (1 - nightBlend * 0.7)
     }
 
-    /* ═══════════════════════════════════════
-       M — Parallax Horizon Drift
-       ═══════════════════════════════════════ */
+    /* M — Sky Parallax */
     if (skyDome) {
-      const parallaxOffset = progress * (1 - CINEMATIC.SKY_PARALLAX_FACTOR) * 100
-      skyDome.position.z = parallaxOffset
+      skyDome.position.z = progress * (1 - CINEMATIC.SKY_PARALLAX_FACTOR) * 100
     }
 
-    /* ═══════════════════════════════════════
-       N — Color Temperature Shift (morning → afternoon → sunset)
-       ═══════════════════════════════════════ */
+    /* N — Color Temperature + Sun Color (zero allocations) */
     if (ipc && sun) {
-      let tintColor
       if (progress < 0.5) {
-        const t = progress / 0.5
-        tintColor = Color3.Lerp(tempStart, tempMid, t)
+        Color3.LerpToRef(tempStart, tempMid, progress / 0.5, _tint)
       } else {
-        const t = (progress - 0.5) / 0.5
-        tintColor = Color3.Lerp(tempMid, tempEnd, t)
+        Color3.LerpToRef(tempMid, tempEnd, (progress - 0.5) / 0.5, _tint)
       }
-
-      const baseSunColor = Color3.FromArray(LIGHTING.SUN.COLOR)
-      let finalSunColor = new Color3(
-        baseSunColor.r * tintColor.r,
-        baseSunColor.g * tintColor.g,
-        baseSunColor.b * tintColor.b,
-      )
-
-      // Night: shift sun to deep blue moonlight
+      _sunColor.set(baseSunColor.r * _tint.r, baseSunColor.g * _tint.g, baseSunColor.b * _tint.b)
       if (nightBlend > 0) {
-        const moonColor = new Color3(0.3, 0.35, 0.55)
-        finalSunColor = Color3.Lerp(finalSunColor, moonColor, nightBlend)
+        Color3.LerpToRef(_sunColor, _moonColor, nightBlend, _sunColor)
       }
-
-      sun.diffuse = finalSunColor
-
-      // Night: dim sun significantly
+      sun.diffuse.copyFrom(_sunColor)
       sun.intensity = daySunIntensity * (1 - nightBlend * 0.85)
     }
 
-    /* ═══════════════════════════════════════
-       P — Motion-Based Shadow Softening
-       ═══════════════════════════════════════ */
-    if (shadowGen) {
-      const targetKernel = baseBlurKernel + CINEMATIC.SHADOW_BLUR_SPEED_BOOST * s
-      shadowGen.blurKernel += (targetKernel - shadowGen.blurKernel) * Math.min(dt * 2, 1)
+    /* P — Shadow blur throttled to every 6 frames */
+    shadowFrame++
+    if (shadowGen && shadowFrame >= 6) {
+      shadowFrame = 0
+      const targetK = baseBlurKernel + CINEMATIC.SHADOW_BLUR_SPEED_BOOST * s
+      shadowGen.blurKernel = shadowGen.blurKernel + (targetK - shadowGen.blurKernel) * 0.15
     }
 
-    /* ═══════════════════════════════════════
-       T — Adaptive Exposure
-       ═══════════════════════════════════════ */
+    /* T — Adaptive Exposure */
     if (ipc) {
-      const exposureCurve = POST.EXPOSURE_MIN +
-        (POST.EXPOSURE_MAX - POST.EXPOSURE_MIN) * (1 - Math.pow(2 * progress - 1, 2) * 0.4)
-
-      // Night: slightly lower exposure for mood
-      const nightExposureShift = nightBlend * -0.25
-      smoothExposure += (exposureCurve + nightExposureShift - smoothExposure) * Math.min(dt * 1.0, 1)
+      const expCurve = POST.EXPOSURE_MIN + (POST.EXPOSURE_MAX - POST.EXPOSURE_MIN) * (1 - Math.pow(2 * progress - 1, 2) * 0.4)
+      smoothExposure += (expCurve - nightBlend * 0.25 - smoothExposure) * Math.min(dt, 1)
       ipc.exposure = Math.max(smoothExposure, POST.EXPOSURE_MIN - nightBlend * 0.3)
     }
 
-    /* ═══════════════════════════════════════
-       U — Time-of-Day Sun Progression
-       ═══════════════════════════════════════ */
+    /* U — Sun Direction (mutate in place, no new Vector3) */
     if (sun) {
-      const sunY = CINEMATIC.SUN_START_Y + (CINEMATIC.SUN_END_Y - CINEMATIC.SUN_START_Y) * progress
-      // Night: sun drops below horizon
-      const nightSunY = sunY + nightBlend * -0.3
-      sun.direction = new Vector3(
-        LIGHTING.SUN.DIRECTION[0],
-        nightSunY,
-        LIGHTING.SUN.DIRECTION[2],
-      )
+      const sunY = CINEMATIC.SUN_START_Y + (CINEMATIC.SUN_END_Y - CINEMATIC.SUN_START_Y) * progress + nightBlend * -0.3
+      _sunDir.set(LIGHTING.SUN.DIRECTION[0], sunY, LIGHTING.SUN.DIRECTION[2])
+      sun.direction.copyFrom(_sunDir)
     }
 
-    /* ═══════════════════════════════════════
-       Sky color temperature + Night transition
-       ═══════════════════════════════════════ */
+    /* Sky colours (reuse _horizonColor, _skyTopOut) */
     if (skyMat) {
-      const warmShift = progress * 0.06
-      let horizonColor = new Color3(
-        SKY.HORIZON_COLOR[0] + warmShift,
-        SKY.HORIZON_COLOR[1] - warmShift * 0.2,
-        SKY.HORIZON_COLOR[2] - warmShift * 0.3,
-      )
-
-      // Night sky transition
+      const ws = progress * 0.06
+      _horizonColor.set(SKY.HORIZON_COLOR[0] + ws, SKY.HORIZON_COLOR[1] - ws * 0.2, SKY.HORIZON_COLOR[2] - ws * 0.3)
       if (nightBlend > 0) {
-        const nightHorizon = Color3.FromArray(NIGHT_MODE.SKY_HORIZON)
-        const nightTop = Color3.FromArray(NIGHT_MODE.SKY_TOP)
-        horizonColor = Color3.Lerp(horizonColor, nightHorizon, nightBlend)
-        skyMat.setColor3('uTopColor', Color3.Lerp(
-          Color3.FromArray(SKY.TOP_COLOR),
-          nightTop,
-          nightBlend,
-        ))
+        Color3.LerpToRef(_horizonColor, _nightHorizon, nightBlend, _horizonColor)
+        Color3.LerpToRef(_skyTopBase, _nightTop, nightBlend, _skyTopOut)
+        skyMat.setColor3('uTopColor', _skyTopOut)
       }
-      skyMat.setColor3('uHorizonColor', horizonColor)
+      skyMat.setColor3('uHorizonColor', _horizonColor)
       skyMat.setFloat('uDayPhase', progress)
     }
 
-    /* ═══════════════════════════════════════
-       Dynamic Fog — Night fog color transition
-       ═══════════════════════════════════════ */
+    /* Fog (reuse _fogColor) */
     if (scene) {
-      const baseDensity = FOG.DENSITY
-      // Sunset factor peaks at progress ~0.5
       const sunsetFactor = Math.pow(Math.sin(progress * Math.PI), 2)
-      // Density DECREASES at sunset — clear golden air lets terrain show through
-      scene.fogDensity = baseDensity - (sunsetFactor * 0.0001) + nightBlend * 0.0004
+      scene.fogDensity = FOG.DENSITY - sunsetFactor * 0.0001 + nightBlend * 0.0004
 
-      // Sunset fog color — warm golden but NOT opaque orange
-      if (sunsetFactor > 0.01 && nightBlend < 0.5) {
+      if (nightBlend > 0.01) {
+        Color3.LerpToRef(dayFogColor, nightFogColor, nightBlend, _fogColor)
+        scene.fogColor.copyFrom(_fogColor)
+        scene.clearColor.r = _fogColor.r; scene.clearColor.g = _fogColor.g; scene.clearColor.b = _fogColor.b
+        Color3.LerpToRef(_dayAmbient, nightAmbientColor, nightBlend, scene.ambientColor)
+      } else if (sunsetFactor > 0.01) {
         const sf = sunsetFactor
-        scene.fogColor = new Color3(
-          dayFogColor.r + sf * 0.12,
-          dayFogColor.g - sf * 0.08,
-          dayFogColor.b - sf * 0.10,
-        )
-        scene.clearColor.r = scene.fogColor.r
-        scene.clearColor.g = scene.fogColor.g
-        scene.clearColor.b = scene.fogColor.b
-      }
-
-      // Transition fog color for night
-      if (nightBlend > 0) {
-        const fogColor = Color3.Lerp(dayFogColor, nightFogColor, nightBlend)
-        scene.fogColor = fogColor
-        scene.clearColor.r = fogColor.r
-        scene.clearColor.g = fogColor.g
-        scene.clearColor.b = fogColor.b
-      }
-
-      // Night ambient
-      if (nightBlend > 0) {
-        scene.ambientColor = Color3.Lerp(
-          new Color3(0.15, 0.18, 0.22),
-          nightAmbientColor,
-          nightBlend,
-        )
+        _fogColor.set(dayFogColor.r + sf * 0.12, dayFogColor.g - sf * 0.08, dayFogColor.b - sf * 0.10)
+        scene.fogColor.copyFrom(_fogColor)
+        scene.clearColor.r = _fogColor.r; scene.clearColor.g = _fogColor.g; scene.clearColor.b = _fogColor.b
       }
     }
 
-    /* ═══════════════════════════════════════
-       HEAT SHIMMER INTENSITY — Active during daytime road sections
-       ═══════════════════════════════════════ */
-    // Heat is strongest in daytime (progress 0.10–0.45), fades at sunset/night
-    const heatDaytime = progress > 0.10 && progress < 0.45
-      ? Math.pow(Math.sin((progress - 0.10) / 0.35 * Math.PI), 0.5)
-      : 0
+    /* Heat shimmer */
     const turboIntensity = window._turboIntensity || 0
+    const heatDaytime = (progress > 0.10 && progress < 0.45)
+      ? Math.pow(Math.sin((progress - 0.10) / 0.35 * Math.PI), 0.5) : 0
     window._heatIntensity = heatDaytime * s * 0.8 + turboIntensity * 0.4
 
-    /* ═══════════════════════════════════════
-       TURBO BURST — Cinematic overrides during turbo window
-       ═══════════════════════════════════════ */
-    if (turboIntensity > 0.05) {
-      // Exposure flash — brief bright surge at turbo peak
-      if (ipc) {
-        ipc.exposure += turboIntensity * 0.3
-      }
-      // Fog clears dramatically during turbo (speed blows it away)
-      if (scene) {
-        scene.fogDensity -= turboIntensity * 0.0003
-      }
+    /* Turbo overrides */
+    if (turboIntensity > 0.05 && ipc) {
+      ipc.exposure += turboIntensity * 0.3
+      if (scene) scene.fogDensity -= turboIntensity * 0.0003
     }
 
-    /* ═══════════════════════════════════════
-       X — Atmosphere system update
-       ═══════════════════════════════════════ */
-    if (updateAtmosphere) {
-      updateAtmosphere(s, dt, progress)
-    }
-
-    /* ═══════════════════════════════════════
-       Y — Post-processing dynamics (DOF, chromatic)
-       ═══════════════════════════════════════ */
+    /* Atmosphere + Post */
+    if (updateAtmosphere) updateAtmosphere(s, dt, progress)
     if (updatePostProcessing) {
       const focusDist = getFocusDistance ? getFocusDistance() : 12
       updatePostProcessing(s, dt, focusDist)

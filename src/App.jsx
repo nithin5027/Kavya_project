@@ -1,8 +1,8 @@
-import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useLocation, useNavigate } from 'react-router-dom'
-import BabylonCanvas from './engine/BabylonCanvas'
+const BabylonCanvas = lazy(() => import('./engine/BabylonCanvas'))
 import OverlayUI from './OverlayUI'
 import PerfHUD from './components/PerfHUD'
 
@@ -50,6 +50,8 @@ export default function App() {
   const rawProgressRef = useRef(0)
   const transitioningToAboutRef = useRef(false)
   const [exitingToPages, setExitingToPages] = useState(false)
+  // When returning from about page: show dark overlay that fades out once 3D is ready
+  const [enterFromAboutOverlay, setEnterFromAboutOverlay] = useState(enteredFromAboutScrollUp)
 
   const isMobile = useMemo(() => {
     if (typeof window === 'undefined') return false
@@ -188,27 +190,13 @@ export default function App() {
       if (transitioningToAboutRef.current || loading || !introComplete) return
       transitioningToAboutRef.current = true
 
-      // 1. Immediately freeze scroll position so the page doesn't visually jump
-      document.body.style.overflow = 'hidden'
-      document.body.style.position = 'fixed'
-      document.body.style.top = `-${window.scrollY}px`
-      document.body.style.left = '0'
-      document.body.style.right = '0'
-
-      // 2. Trigger fade-out overlay
+      // 1. Show dark overlay immediately — covers everything before any DOM change
       setExitingToPages(true)
 
-      // 3. After fade-out animation completes, navigate
+      // 2. After overlay is fully opaque (0.45s transition + 60ms buffer), navigate
       setTimeout(() => {
-        const scrollY = document.body.style.top
-        document.body.style.overflow = ''
-        document.body.style.position = ''
-        document.body.style.top = ''
-        document.body.style.left = ''
-        document.body.style.right = ''
-        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1)
         navigate('/pages', { state: { fromHomeScroll: true } })
-      }, 500)
+      }, 520)
     }
 
     const hasReachedEnd = () => rawProgressRef.current >= END_THRESHOLD
@@ -373,7 +361,11 @@ export default function App() {
   // ── Cinematic intro sequence ──
   const handleReady = useCallback(() => {
     setReady(true)
-  }, [])
+    // Fade out the dark entry overlay once the 3D scene has painted
+    if (enterFromAboutOverlay) {
+      setTimeout(() => setEnterFromAboutOverlay(false), 80)
+    }
+  }, [enterFromAboutOverlay])
 
   useEffect(() => {
     if (enteredFromAboutScrollUp) {
@@ -425,8 +417,10 @@ export default function App() {
       {/* ── Scroll spacer ── */}
       <div className="scroll-spacer" style={{ height: `${SCROLL_PAGES * 100}vh` }} />
 
-      {/* ── 3D Canvas — Babylon.js cinematic engine ── */}
-      <BabylonCanvas progressRef={progressRef} onReady={handleReady} />
+      {/* ── 3D Canvas — Babylon.js cinematic engine (lazy-loaded) ── */}
+      <Suspense fallback={<div style={{ position: 'fixed', inset: 0, background: '#060810' }} />}>
+        <BabylonCanvas progressRef={progressRef} onReady={handleReady} />
+      </Suspense>
 
       {/* ── Fixed overlay — section-driven, minimal re-renders ── */}
       <OverlayUI section={section} progressRef={progressRef} introComplete={introComplete} />
@@ -439,6 +433,15 @@ export default function App() {
 
       {/* ── Page exit fade overlay ── */}
       <div className={`home-exit-fade ${exitingToPages ? 'home-exit-fade--active' : ''}`} />
+
+      {/* ── About→Home entry overlay: dark screen fades out after 3D renders ── */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9997,
+        background: '#060810',
+        opacity: enterFromAboutOverlay ? 1 : 0,
+        pointerEvents: enterFromAboutOverlay ? 'all' : 'none',
+        transition: enterFromAboutOverlay ? 'none' : 'opacity 0.45s cubic-bezier(0.4,0,0.2,1)',
+      }} />
 
       {showPerfHUD && <PerfHUD metrics={perfMetrics} tier={runtimeTier} />}
     </>

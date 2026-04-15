@@ -70,39 +70,39 @@ export const CAMERA = {
 */
 export const CAMERA_KEYFRAMES = [
   // ═══ SECTION 0: CINEMATIC INTRO — distant truck rushes toward camera ═══
-  { t: 0.00, alpha: Math.PI * 0.95, beta: 1.08, radius: 45, targetY: 3.5, fov: 0.60 },
-  // Truck approaching — dramatic zoom in
-  { t: 0.04, alpha: Math.PI * 0.92, beta: 1.15, radius: 28, targetY: 2.8, fov: 0.75 },
-  // HERO REVEAL — snap to low angle behind, ground-level power shot
-  { t: 0.08, alpha: Math.PI,        beta: 1.42, radius: 12, targetY: 0.4, fov: 0.92 },
-  // ═══ SECTION 1: THREE-QUARTER BEAUTY — truck identity showcase ═══
-  { t: 0.14, alpha: Math.PI * 0.65, beta: 1.18, radius: 11, targetY: 1.5, fov: 0.85 },
-  // ═══ SECTION 2: BRANDING CLOSE-UP — camera sweeps to container side ═══
-  { t: 0.22, alpha: Math.PI * 0.50, beta: 1.22, radius: 7,  targetY: 2.2, fov: 0.78 },
-  // SECTION 2b: Branding hold — linger on KAVYA TRANSPORTS text
-  { t: 0.28, alpha: Math.PI * 0.48, beta: 1.20, radius: 8,  targetY: 2.0, fov: 0.80 },
-  // ═══ SECTION 3: FRONT HERO — low dramatic looking up at truck ═══
-  { t: 0.35, alpha: Math.PI * 0.20, beta: 1.38, radius: 9,  targetY: 0.6, fov: 0.82 },
+  { t: 0.00, alpha: Math.PI * 0.90, beta: 1.05, radius: 42, targetY: 3.0, fov: 0.62 },
+  // Truck approaching — dramatic zoom in from rear-left 3/4
+  { t: 0.04, alpha: Math.PI * 0.88, beta: 1.18, radius: 24, targetY: 2.5, fov: 0.78 },
+  // HERO REVEAL — low angle behind, ground-level power shot
+  { t: 0.08, alpha: Math.PI,        beta: 1.40, radius: 11, targetY: 0.5, fov: 0.90 },
+  // ═══ SECTION 1: THREE-QUARTER BEAUTY — front-right identity showcase ═══
+  { t: 0.14, alpha: Math.PI * 0.62, beta: 1.20, radius: 12, targetY: 1.6, fov: 0.84 },
+  // ═══ SECTION 2: BRANDING CLOSE-UP — right 3/4 angle, shows depth + text ═══
+  { t: 0.22, alpha: Math.PI * 0.42, beta: 1.25, radius: 8,  targetY: 2.0, fov: 0.76 },
+  // SECTION 2b: Branding hold — slight pan, still 3/4 not flat 90°
+  { t: 0.28, alpha: Math.PI * 0.40, beta: 1.28, radius: 8.5, targetY: 1.8, fov: 0.78 },
+  // ═══ SECTION 3: FRONT HERO — low dramatic looking up at truck nose ═══
+  { t: 0.35, alpha: Math.PI * 0.18, beta: 1.40, radius: 9,  targetY: 0.6, fov: 0.82 },
   // ═══ SECTION 4: HIGH AERIAL — gods-eye cinematic sweep ═══
-  { t: 0.42, alpha: Math.PI * 0.35, beta: 0.55, radius: 22, targetY: 3.0, fov: 0.72 },
+  { t: 0.42, alpha: Math.PI * 0.30, beta: 0.52, radius: 24, targetY: 3.5, fov: 0.70 },
   // Aerial descent — swooping down dramatically
-  { t: 0.48, alpha: Math.PI * 0.55, beta: 0.85, radius: 14, targetY: 2.0, fov: 0.80 },
+  { t: 0.48, alpha: Math.PI * 0.52, beta: 0.88, radius: 14, targetY: 2.0, fov: 0.78 },
   // ═══ SECTION 5: TURBO BURST — tight rear chase during peak speed ═══
-  { t: 0.53, alpha: Math.PI * 0.98, beta: 1.30, radius: 8,  targetY: 1.2, fov: 0.65 },
-  // Speed rush — FOV compresses, camera shakes more
-  { t: 0.58, alpha: Math.PI * 1.02, beta: 1.28, radius: 7,  targetY: 1.0, fov: 0.58 },
-  // ═══ SECTION 6: SIDE TRACKING — full truck profile at speed ═══
-  { t: 0.65, alpha: Math.PI * 1.50, beta: 1.15, radius: 14, targetY: 1.8, fov: 0.90 },
-  // ═══ SECTION 7: OPPOSITE BRANDING — other side container view ═══
-  { t: 0.72, alpha: Math.PI * 1.52, beta: 1.20, radius: 8,  targetY: 2.0, fov: 0.78 },
+  { t: 0.53, alpha: Math.PI * 0.96, beta: 1.32, radius: 8,  targetY: 1.2, fov: 0.64 },
+  // Speed rush — FOV compresses, camera shakes
+  { t: 0.58, alpha: Math.PI * 1.00, beta: 1.30, radius: 7,  targetY: 1.0, fov: 0.58 },
+  // ═══ SECTION 6: LEFT 3/4 TRACKING — rear-left angle, NOT flat 90° side ═══
+  { t: 0.65, alpha: Math.PI * 1.38, beta: 1.18, radius: 14, targetY: 1.8, fov: 0.88 },
+  // ═══ SECTION 7: OPPOSITE BRANDING — left 3/4, shows container with depth ═══
+  { t: 0.72, alpha: Math.PI * 1.42, beta: 1.22, radius: 9,  targetY: 2.0, fov: 0.76 },
   // ═══ SECTION 8: WIDE CINEMATIC — golden hour beauty shot ═══
-  { t: 0.80, alpha: Math.PI * 1.25, beta: 0.92, radius: 20, targetY: 2.5, fov: 0.98 },
+  { t: 0.80, alpha: Math.PI * 1.20, beta: 0.90, radius: 22, targetY: 2.8, fov: 0.95 },
   // ═══ SECTION 9: SUNSET LOW — dramatic silhouette angle ═══
-  { t: 0.88, alpha: Math.PI * 0.85, beta: 1.40, radius: 10, targetY: 0.5, fov: 0.85 },
-  // ═══ FINALE: MAJESTIC PULL-AWAY — truck recedes into night ═══
-  { t: 0.95, alpha: Math.PI * 0.80, beta: 1.15, radius: 16, targetY: 2.0, fov: 0.88 },
+  { t: 0.88, alpha: Math.PI * 0.82, beta: 1.42, radius: 11, targetY: 0.5, fov: 0.84 },
+  // ═══ FINALE: MAJESTIC PULL-AWAY — truck recedes into distance ═══
+  { t: 0.95, alpha: Math.PI * 0.78, beta: 1.18, radius: 18, targetY: 2.2, fov: 0.86 },
   // End hold — wide establishing shot
-  { t: 1.00, alpha: Math.PI * 0.78, beta: 0.95, radius: 30, targetY: 4.0, fov: 0.70 },
+  { t: 1.00, alpha: Math.PI * 0.76, beta: 0.92, radius: 32, targetY: 4.0, fov: 0.68 },
 ]
 
 /* ═══════════════════════════════════════

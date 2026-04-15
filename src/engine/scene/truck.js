@@ -161,7 +161,7 @@ function createWorldSpaceBranding(truckRoot, scene) {
   )
   stickerL.material = brandMat
   stickerL.isPickable = false
-  stickerL.renderingGroupId = 2
+  stickerL.renderingGroupId = 0
   stickerL.parent = truckRoot
   stickerL.position.x = -wallX
   stickerL.position.y = containerCenterY
@@ -176,7 +176,7 @@ function createWorldSpaceBranding(truckRoot, scene) {
   )
   stickerR.material = brandMat
   stickerR.isPickable = false
-  stickerR.renderingGroupId = 2
+  stickerR.renderingGroupId = 0
   stickerR.parent = truckRoot
   stickerR.position.x = wallX
   stickerR.position.y = containerCenterY
@@ -343,7 +343,6 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
       mesh.isVisible = true
       mesh.visibility = 1
       mesh.isPickable = false
-      mesh.alwaysSelectAsActiveMesh = true
       if (mesh.material) {
         forceOpaqueTruckMaterial(mesh.material)
       }
@@ -404,26 +403,11 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
       }
 
       mesh.receiveShadows = true
-      mesh.renderingGroupId = 2
+      mesh.renderingGroupId = 0
     })
 
     // Store loaded meshes for lighting assignment after lights are created
     truck._loadedMeshes = result.meshes.filter(m => m.getTotalVertices && m.getTotalVertices() > 0)
-
-    // Diagnostic: log all mesh info
-    result.meshes.forEach((mesh, i) => {
-      mesh.computeWorldMatrix(true)
-      const b = mesh.getBoundingInfo().boundingBox
-      const vol = b.extendSizeWorld.x * b.extendSizeWorld.y * b.extendSizeWorld.z
-      console.log(
-        `[MESH ${i}]`,
-        `name="${mesh.name}"`,
-        `verts=${mesh.getTotalVertices()}`,
-        `vol=${vol.toFixed(3)}`,
-        `mat="${mesh.material?.name || 'none'}"`,
-        `pos=(${mesh.absolutePosition.x.toFixed(1)},${mesh.absolutePosition.y.toFixed(1)},${mesh.absolutePosition.z.toFixed(1)})`
-      )
-    })
 
   } catch (err) {
     console.error('[Kavya Truck] CRITICAL: Using fallback box - GLB failed')
@@ -432,16 +416,14 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
 
     // Add fallback meshes to rendering group
     truck.getChildMeshes().forEach((child) => {
-      child.renderingGroupId = 2
+      child.renderingGroupId = 0
       child.doNotSyncBoundingInfo = false
     })
   }
 
-  // Keep the full truck mesh active at all distances.
-  // Previous LOD assets were over-simplified and caused geometry popping/invisibility.
+  // Ensure all child meshes are visible
   if (truck.getChildMeshes) {
     truck.getChildMeshes().forEach((mesh) => {
-      mesh.alwaysSelectAsActiveMesh = true
       mesh.isVisible = true
       mesh.visibility = 1
       if (mesh.setEnabled) mesh.setEnabled(true)
@@ -451,7 +433,7 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
   // Apply transform
   truck.position = new Vector3(TRUCK.POSITION[0], TRUCK.POSITION[1], TRUCK.POSITION[2])
   truck.scaling = new Vector3(TRUCK.SCALE, TRUCK.SCALE, TRUCK.SCALE)
-  truck.renderingGroupId = 2  // Render above road (1) and terrain (0)
+  truck.renderingGroupId = 0
   if (TRUCK.ROTATION_Y !== 0) {
     truck.rotation.y = TRUCK.ROTATION_Y
   }
@@ -459,14 +441,6 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
   // Compute world matrix after scaling for correct bounds
   truck.computeWorldMatrix(true)
   truck.getChildMeshes().forEach(m => m.computeWorldMatrix(true))
-  const bounds = truck.getHierarchyBoundingVectors(true)
-
-  console.log('[Kavya Truck] Bounding min:', bounds.min.toString(), 'max:', bounds.max.toString())
-  console.log('[Kavya Truck] Size:', {
-    x: (bounds.max.x - bounds.min.x).toFixed(2),
-    y: (bounds.max.y - bounds.min.y).toFixed(2),
-    z: (bounds.max.z - bounds.min.z).toFixed(2),
-  })
 
   // World-space branding stickers — DISABLED
   // window._brandingStickers = createWorldSpaceBranding(truck, scene)
@@ -575,7 +549,7 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
     coneMat.disableLighting = true
     cone.material = coneMat
     cone.isPickable = false
-    cone.renderingGroupId = 2
+    cone.renderingGroupId = 0
 
     // Exclude headlight cones from GlowLayer to prevent double bloom
     const glowLayer = scene.effectLayers?.find(l => l.name === 'glowLayer')
@@ -593,7 +567,7 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
   exhaustEmitter.parent = truck
   exhaustEmitter.position = new Vector3(-0.04, 0.32, -0.42) // local space (pre-scale)
 
-  const exhaust = new ParticleSystem('exhaust', 300, scene)
+  const exhaust = new ParticleSystem('exhaust', 100, scene)
 
   // Create soft circular particle texture via DynamicTexture
   const particleTex = new DynamicTexture('exhaustTex', { width: 64, height: 64 }, scene)
@@ -641,7 +615,7 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
      TIRE DUST PARTICLES (I)
      Low-opacity dust near tires at high speed
      ═══════════════════════════════════════ */
-  const tireDust = new ParticleSystem('tireDust', 150, scene)
+  const tireDust = new ParticleSystem('tireDust', 60, scene)
   tireDust.particleTexture = particleTex // reuse the same soft circle texture
   tireDust.createConeEmitter(0.8, Math.PI / 6)
   tireDust.emitter = truck
@@ -678,36 +652,9 @@ export async function setupTruck(scene, shadowGen, assetPaths = {}) {
     }
   })
 
-  /* ═══════════════════════════════════════
-     HEADLIGHT BEAM DUST PARTICLES
-     Tiny floating particles inside volumetric cone
-     ═══════════════════════════════════════ */
-  const hlDustSystems = hlPositions.map((pos, i) => {
-    const hlDust = new ParticleSystem(`hlDust_${i}`, 60, scene)
-    hlDust.createBoxEmitter(
-      new Vector3(-0.3, -0.1, 0),
-      new Vector3(0.3, 0.1, TRUCK.HL_CONE_LENGTH),
-      new Vector3(-0.2, -0.05, 0),
-      new Vector3(0.2, 0.05, TRUCK.HL_CONE_LENGTH * 0.8),
-    )
-    hlDust.emitter = truck
-    hlDust.particleTexture = particleTex
-    hlDust.color1 = new Color4(1.0, 0.97, 0.92, 0.06)
-    hlDust.color2 = new Color4(0.95, 0.95, 0.92, 0.03)
-    hlDust.colorDead = new Color4(1, 1, 1, 0)
-    hlDust.minSize = TRUCK.HL_DUST_SIZE[0]
-    hlDust.maxSize = TRUCK.HL_DUST_SIZE[1]
-    hlDust.minLifeTime = 1.0
-    hlDust.maxLifeTime = 3.0
-    hlDust.emitRate = TRUCK.HL_DUST_RATE
-    hlDust.minEmitPower = 0.01
-    hlDust.maxEmitPower = 0.05
-    hlDust.gravity = new Vector3(0, -0.01, 0)
-    hlDust.blendMode = ParticleSystem.BLENDMODE_ADD
-    hlDust.updateSpeed = 0.005
-    hlDust.start()
-    return hlDust
-  })
+  /* Headlight beam dust removed — barely visible at runtime opacity 0.03–0.06,
+     but costs 2 × 60-particle systems running every frame */
+  const hlDustSystems = []
 
   /* ═══════════════════════════════════════
      HEAT DISTORTION PLANE (behind exhaust)

@@ -652,7 +652,16 @@ function BrandedMilestones() {
 
   const cityTs = [0, 0.2, 0.4, 0.65, 0.999]
   const positions = useMemo(() => {
-    return cityTs.map(t => routeCurve.getPointAt(Math.min(t, 0.999)))
+    return cityTs.map((t, i) => {
+      const pos = routeCurve.getPointAt(Math.min(t, 0.999))
+      const tangent = routeCurve.getTangentAt(Math.min(t, 0.999))
+      // Offset poles to the side of the road to prevent Z-fighting with truck
+      const side = i % 2 === 0 ? 3.5 : -3.5
+      return {
+        x: pos.x + tangent.z * side,
+        z: pos.z - tangent.x * side
+      }
+    })
   }, [])
 
   useFrame(() => {

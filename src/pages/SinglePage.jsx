@@ -215,6 +215,7 @@ const testimonials = [
 export default function SinglePage() {
   const statsRef = useRef(null)
   const [mounted, setMounted] = useState(false)
+  const [exitingToHome, setExitingToHome] = useState(false)
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', company: '', service: '', message: '' })
   const location = useLocation()
   const navigate = useNavigate()
@@ -288,8 +289,12 @@ export default function SinglePage() {
     const goHome = () => {
       if (transitioning) return
       transitioning = true
-      window.__kavyaSkipLoaderOnce = true
-      navigate('/', { state: { fromAboutScrollUp: true } })
+      // Fade out this page first, then navigate
+      setExitingToHome(true)
+      setTimeout(() => {
+        window.__kavyaSkipLoaderOnce = true
+        navigate('/', { state: { fromAboutScrollUp: true } })
+      }, 420)
     }
 
     const onWheel = (e) => {
@@ -340,6 +345,14 @@ export default function SinglePage() {
 
   return (
     <div className={`page-wrapper ${fromHome ? 'page-fade-in' : ''}`}>
+      {/* Fade-out overlay for About → Home transition */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: '#060810',
+        opacity: exitingToHome ? 1 : 0,
+        pointerEvents: exitingToHome ? 'all' : 'none',
+        transition: 'opacity 0.4s cubic-bezier(0.4,0,0.2,1)',
+      }} />
       {mounted && <ScrollProgress />}
       <Header />
       <main className="page-main">
