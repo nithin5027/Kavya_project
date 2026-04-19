@@ -45,8 +45,8 @@ export const CAMERA = {
   FOV: 0.9,
   FOV_MIN: 0.72,
   FOV_MAX: 0.95,
-  NEAR: 0.3,
-  FAR: 800,
+  NEAR: 0.1,
+  FAR: 1000,
   // Spring follow constants
   FOLLOW_LERP: 0.08,
   LOOK_LERP: 0.06,

@@ -24,6 +24,7 @@ import {
   PBRMaterial,
   Effect,
   Mesh,
+  HemisphericLight,
   SceneOptimizer,
   SceneOptimizerOptions,
 } from '@babylonjs/core'
@@ -273,6 +274,11 @@ export async function createScene(engine, canvas, deviceTier = 'balanced') {
   )
   scene.ambientColor = new Color3(0.15, 0.18, 0.22)
 
+  // [FIX #9] Mobile performance flags — reduces CPU overhead significantly
+  scene.skipPointerMovePicking = true
+  scene.autoClear = true
+  scene.autoClearDepthAndStencil = true
+
   // All meshes use group 0 — the GPU's standard depth buffer handles occlusion correctly.
   // Road is at Y=0.08 and terrain at Y=0, physically separated, so no z-fighting.
 
@@ -290,6 +296,18 @@ export async function createScene(engine, canvas, deviceTier = 'balanced') {
 
   /* ── Lighting + Shadows ── */
   const { sun, fill, shadowGen, groundBounce } = setupLighting(scene, deviceTier)
+
+  // [FIX #5] Ensure minimum light on mobile — prevents black scene if PBR lights fail
+  if (IS_MOBILE) {
+    const mobileHemi = new HemisphericLight('mobileHemi', new Vector3(0, 1, 0), scene)
+    mobileHemi.intensity = 0.6
+    mobileHemi.diffuse = new Color3(1, 0.95, 0.88)
+    mobileHemi.specular = Color3.Black()
+  }
+
+  // Guarantee existing lights have sufficient intensity
+  if (fill) fill.intensity = Math.max(fill.intensity, 0.4)
+  if (sun) sun.intensity = Math.max(sun.intensity, 0.6)
 
   /* ── Sky dome ── */
   const { skyDome, skyMat } = setupSky(scene)
@@ -438,7 +456,17 @@ export async function createScene(engine, canvas, deviceTier = 'balanced') {
     if (!isDynamic && mesh.freezeWorldMatrix) {
       mesh.freezeWorldMatrix()
     }
+    // [FIX #9] Disable picking on all non-interactive meshes — big mobile CPU win
+    if (!isTruck) {
+      mesh.isPickable = false
+      mesh.alwaysSelectAsActiveMesh = false
+    }
   })
+
+  // [FIX #9] Cap hardware scaling on mobile to reduce GPU load
+  if (IS_MOBILE) {
+    engine.setHardwareScalingLevel(1.5)
+  }
 
   // ── Scene-wide OPAQUE enforcement ──
   // GLB files bake alpha-blend/alpha-mask modes onto materials. Any mesh whose

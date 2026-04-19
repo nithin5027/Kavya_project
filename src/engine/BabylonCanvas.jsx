@@ -14,18 +14,24 @@
  *  The Babylon engine is fully imperative — no R3F hooks.
  *  progressRef.current is read every frame in the render loop.
  */
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import * as BABYLON from '@babylonjs/core'
 import { createScene } from './scene/createScene'
 import { getDeviceTier } from './config'
 
 // [PERF-FIX] Memory-safe engine flags and tier-aware scene initialization.
 
+const isMobileDevice = () =>
+  typeof window !== 'undefined' &&
+  (/iPhone|iPad|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    window.innerWidth < 768)
+
 export default function BabylonCanvas({ progressRef, onReady }) {
   // [PERF-FIX] Apply memory-safe engine flags and pass device tier to scene boot.
   const canvasRef = useRef(null)
   const engineRef = useRef(null)
   const disposeRef = useRef(null)
+  const [webGLFailed, setWebGLFailed] = useState(false)
 
   useEffect(() => {
     let disposed = false
@@ -50,6 +56,15 @@ export default function BabylonCanvas({ progressRef, onReady }) {
     let scene = null
     let updateFrame = null
     let prevTime = performance.now()
+    let fallbackTimer = null
+
+    // [FIX #2] Check WebGL support before attempting to create engine
+    if (!BABYLON.Engine.isSupported()) {
+      console.warn('[BabylonCanvas] WebGL not supported — showing static fallback')
+      setWebGLFailed(true)
+      window.__kavyaInitializing = false
+      return
+    }
 
     const handleResize = () => {
       if (engine && !engine.isDisposed) {
@@ -71,31 +86,70 @@ export default function BabylonCanvas({ progressRef, onReady }) {
         window.__kavyaEngine = null
       }
 
-      engine = new BABYLON.Engine(canvas, true, {
-        preserveDrawingBuffer: false,
-        stencil: true,
-        antialias: true,
-        doNotHandleContextLost: false,
-      })
+      // [FIX #4, #2] Wrap engine creation in try/catch — mobile can fail silently
+      try {
+        engine = new BABYLON.Engine(canvas, true, {
+          preserveDrawingBuffer: true,
+          stencil: true,
+          antialias: !isMobileDevice(),
+          doNotHandleContextLost: false,
+          limitDeviceRatio: 2,          // [FIX #4] cap pixel ratio — prevents GPU overflow on Retina/AMOLED
+          disableWebGL2Support: false,
+        })
+      } catch (engineErr) {
+        console.error('[BabylonCanvas] Engine creation failed:', engineErr)
+        setWebGLFailed(true)
+        window.__kavyaInitializing = false
+        return
+      }
+
       engine.enableOfflineSupport = false
       engine.doNotHandleContextLost = false
+      // Disable Babylon's built-in loading UI to prevent conflicts
+      BABYLON.SceneLoader.ShowLoadingUI = false
       // Force shader compilation to complete before first render
       BABYLON.Effect.ShadersStore = BABYLON.Effect.ShadersStore || {}
       window.__kavyaEngine = engine
 
+      // [FIX #11] 8-second fallback timer — if canvas stays white, show static image
+      fallbackTimer = setTimeout(() => {
+        if (!window.__kavyaTruckReady) {
+          console.warn('[BabylonCanvas] Scene failed to load in 8s — showing static fallback')
+          setWebGLFailed(true)
+        }
+      }, 8000)
+
       // If this effect was cleaned up while creating the engine, stop immediately.
       if (disposed) {
+        clearTimeout(fallbackTimer)
         try { engine.dispose() } catch (e) {}
         window.__kavyaEngine = null
         window.__kavyaInitializing = false
         return
       }
 
-      const deviceTier = getDeviceTier(engine)
+      let deviceTier
+      try {
+        deviceTier = getDeviceTier(engine)
+      } catch (e) {
+        deviceTier = 'low'
+      }
       window.__kavyaDeviceTier = deviceTier
       window.dispatchEvent(new CustomEvent('kavya:tier-detected', { detail: { tier: deviceTier } }))
-      const created = await createScene(engine, canvas, deviceTier)
+
+      let created
+      try {
+        created = await createScene(engine, canvas, deviceTier)
+      } catch (sceneErr) {
+        console.error('[BabylonCanvas] createScene failed:', sceneErr)
+        clearTimeout(fallbackTimer)
+        setWebGLFailed(true)
+        window.__kavyaInitializing = false
+        return
+      }
+
       if (disposed) {
+        clearTimeout(fallbackTimer)
         try { created.dispose?.() } catch (e) {}
         try { engine.dispose() } catch (e) {}
         window.__kavyaEngine = null
@@ -107,6 +161,12 @@ export default function BabylonCanvas({ progressRef, onReady }) {
       updateFrame = created.updateFrame
       disposeRef.current = created.dispose
       engineRef.current = engine
+
+      // [FIX #11] Cancel fallback timer once scene is confirmed ready
+      scene.executeWhenReady(() => {
+        clearTimeout(fallbackTimer)
+        fallbackTimer = null
+      })
 
       engine.runRenderLoop(() => {
         if (scene && scene.isReady() && !engine.isDisposed) {
@@ -128,11 +188,17 @@ export default function BabylonCanvas({ progressRef, onReady }) {
       window.__kavyaInitializing = false
     }
 
-    init().catch(err => console.error('[BabylonCanvas] init error:', err))
+    init().catch(err => {
+      console.error('[BabylonCanvas] init error:', err)
+      clearTimeout(fallbackTimer)
+      setWebGLFailed(true)
+      window.__kavyaInitializing = false
+    })
 
     return () => {
       disposed = true
       window.__kavyaInitializing = false
+      if (fallbackTimer) clearTimeout(fallbackTimer)
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('kavya:tier-changed', onTierChanged)
       if (disposeRef.current) {
@@ -148,6 +214,32 @@ export default function BabylonCanvas({ progressRef, onReady }) {
     }
   }, []) // Mount once
 
+  // [FIX #2, #11] Static image fallback when WebGL fails or times out
+  if (webGLFailed) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0, left: 0,
+        width: '100%', height: '100%',
+        background: '#060810',
+        zIndex: 0,
+        overflow: 'hidden',
+      }}>
+        <img
+          src="/assets/truck-fallback.jpg"
+          alt="Kavya Transports Truck"
+          onError={(e) => { e.target.style.display = 'none' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
     <canvas
       ref={canvasRef}
@@ -155,12 +247,13 @@ export default function BabylonCanvas({ progressRef, onReady }) {
         position: 'fixed',
         top: 0,
         left: 0,
-        width: '100vw',
-        height: '100vh',
+        width: '100%',
+        height: '100%',
+        display: 'block',
         outline: 'none',
+        touchAction: 'none',
         zIndex: 0,
       }}
-      touch-action="none"
     />
   )
 }
